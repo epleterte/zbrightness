@@ -1,0 +1,73 @@
+#!/bin/bash -ue
+
+current_brightness=$( cat /sys/class/backlight/intel_backlight/actual_brightness )
+max_brightness=$( cat /sys/class/backlight/intel_backlight/max_brightness )
+step="20"
+value=""
+
+
+fe=$(which yad) || true
+if [[ ${fe} == "" ]]
+  then
+    fe=$(which zenity) || { echo "yad/zenity not installed. Install at least one :-)"; exit 1; }
+fi
+
+function print_usage {
+  cat <<EOF
+Adjust Intel backlight
+Usage: ${0} [-h] <value>
+  -h  Print this useful text.
+  -f  Frontend - yad or zenity. Default is ${fe}
+
+Max values for brightness is ${current_brightness:-n/a}
+Current brightness value is ${max_brightness:-n/a}
+
+Examples:
+  # set brigtness to 500:
+  ${0} 500
+  # adjust with slider:
+  ${0}
+EOF
+}
+
+while getopts h o
+do
+  case $o in
+    h)
+    print_usage ; exit ;;
+  esac
+done
+shift $(($OPTIND-1))
+
+if [[ $# -ge 1 ]]; then
+  value=$1
+fi
+
+case $value in
+  "up")
+    value=$(( ${current_brightness}+${step} )) ;;
+  "down")
+    value=$(( ${current_brightness}-${step} )) ;;
+  "max")
+    value=${max_brightness} ;;
+  "min"|"low")
+    value=300 ;;
+esac
+
+if [[ ${UID} -ne 0 && ${SUDO_USER:-} == "" ]]; then
+  echo "You need root/sudo privileges"
+  exit 1
+fi
+
+if [ "${value}" != "" -a ${value} -eq ${value} ] 2>/dev/null;
+then
+  echo $value > /sys/class/backlight/intel_backlight/brightness
+  exit 0
+else
+  echo "Invalid value: ${value}."
+  echo "Use numericals or keywords up/down or max/min"
+fi
+
+${fe} --text="Brightness Value" --scale --print-partial --min-value=5 --max-value=${max_brightness} --value=${current_brightness} | while read num; do
+  echo $num > /sys/class/backlight/intel_backlight/brightness
+done
