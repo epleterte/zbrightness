@@ -56,6 +56,12 @@ esac
 
 if [[ ${UID} -ne 0 && ${SUDO_USER:-} == "" ]]; then
   echo "You need root/sudo privileges"
+  echo "Attempting elevation..."
+  if ( which gksu >/dev/null ); then
+    gksu $0
+    exit $?
+  fi
+  printf "...failed!\n"
   exit 1
 fi
 
